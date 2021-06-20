@@ -1,0 +1,21 @@
+id: cyber_ether_sink
+label: CyberEther Sink
+category: '[cyber]'
+
+templates:
+  imports: import cyber
+  make: cyber.ether_sink(${ui_enable})
+
+parameters:
+- id: ui_enable
+  label: Enable UI
+  dtype: bool
+  value: true
+
+inputs:
+- label: in
+  dtype: complex
+
+outputs:
+
+file_format: 1
