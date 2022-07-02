@@ -10,9 +10,7 @@
 # Find dependencies
 ########################################################################
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(render REQUIRED IMPORTED_TARGET render)
 pkg_check_modules(jetstream REQUIRED IMPORTED_TARGET jetstream)
-pkg_check_modules(samurai REQUIRED IMPORTED_TARGET samurai)
 
 ########################################################################
 # Setup library
@@ -32,14 +30,12 @@ endif(NOT cyber_sources)
 add_library(gnuradio-cyber SHARED ${cyber_sources})
 target_link_libraries(gnuradio-cyber
     gnuradio::gnuradio-runtime
-    PkgConfig::render
-    PkgConfig::jetstream
-    PkgConfig::samurai)
+    PkgConfig::jetstream)
 target_include_directories(gnuradio-cyber
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     PUBLIC $<INSTALL_INTERFACE:include>
   )
-set_target_properties(gnuradio-cyber PROPERTIES CXX_STANDARD 17 DEFINE_SYMBOL "gnuradio_cyber_EXPORTS")
+set_target_properties(gnuradio-cyber PROPERTIES CXX_STANDARD 20 DEFINE_SYMBOL "gnuradio_cyber_EXPORTS")
 
 if(APPLE)
     set_target_properties(gnuradio-cyber PROPERTIES

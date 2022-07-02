@@ -51,11 +51,11 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
 endif()
 
 IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    SET(CMAKE_CXX_STANDARD 14)
+    SET(CMAKE_CXX_STANDARD 20)
 ELSEIF(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    SET(CMAKE_CXX_STANDARD 14)
+    SET(CMAKE_CXX_STANDARD 20)
 ELSEIF(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    SET(CMAKE_CXX_STANDARD 14)
+    SET(CMAKE_CXX_STANDARD 20)
 ELSE()
     message(WARNING "C++ standard could not be set because compiler is not GNU, Clang or MSVC.")
 ENDIF()
@@ -74,7 +74,7 @@ ENDIF()
 # Install directories
 ########################################################################
 include(FindPkgConfig)
-find_package(Gnuradio "3.9" REQUIRED)
+find_package(Gnuradio "3.10" REQUIRED)
 include(GrVersion)
 
 include(GrPlatform) #define LIB_SUFFIX

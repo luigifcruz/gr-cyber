@@ -13,6 +13,8 @@
 
 #include <gnuradio/attributes.h>
 
+#include <jetstream/base.hh>
+
 #ifdef gnuradio_cyber_EXPORTS
 #define CYBER_API __GR_ATTR_EXPORT
 #else

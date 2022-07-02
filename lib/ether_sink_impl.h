@@ -8,14 +8,9 @@
 #ifndef INCLUDED_CYBER_ETHER_SINK_IMPL_H
 #define INCLUDED_CYBER_ETHER_SINK_IMPL_H
 
-#include <cyber/ether_sink.h>
+#include <thread>
 
-#include <render/base.hpp>
-#include <samurai/base/cbuffer.hpp>
-#include <jetstream/fft/base.hpp>
-#include <jetstream/lineplot/base.hpp>
-#include <jetstream/waterfall/base.hpp>
-#include <jetstream/histogram/base.hpp>
+#include <cyber/ether_sink.h>
 
 namespace gr {
 namespace cyber {
@@ -23,21 +18,26 @@ namespace cyber {
 class ether_sink_impl : public ether_sink
 {
 private:
-    std::thread dsp, ui;
+    std::thread dsp;
+    std::thread ui;
     std::atomic<bool> streaming{false};
+    std::atomic<Jetstream::I64> position{0};
 
-    // Render
-    std::shared_ptr<Render::Instance> render;
+    std::shared_ptr<Jetstream::Window<Jetstream::Device::CPU>> win;
+    std::shared_ptr<Jetstream::Multiply<Jetstream::Device::CPU>> mul;
+    std::shared_ptr<Jetstream::FFT<Jetstream::Device::CPU>> fft;
+    std::shared_ptr<Jetstream::Amplitude<Jetstream::Device::CPU>> amp;
+    std::shared_ptr<Jetstream::Scale<Jetstream::Device::CPU>> scl;
+    std::shared_ptr<Jetstream::Lineplot<Jetstream::Device::CPU>> lpt;
+    std::shared_ptr<Jetstream::Waterfall<Jetstream::Device::CPU>> wtf;
 
-    // Jetstream
-    std::shared_ptr<Jetstream::Engine> engine;
-    std::shared_ptr<Jetstream::FFT::Generic> fft;
-    std::shared_ptr<Jetstream::Lineplot::Generic> lpt;
-    std::shared_ptr<Jetstream::Waterfall::Generic> wtf;
+    std::unique_ptr<Jetstream::Memory::Vector<
+      Jetstream::Device::CPU, Jetstream::CF32>> stream;
+    Jetstream::Memory::CircularBuffer<Jetstream::CF32> buffer;
 
-    // Samurai
-    Samurai::CircularBuffer<std::complex<float>> buffer;
-    std::vector<std::complex<float>> stream;
+    NS::AutoreleasePool* pPool;
+
+    ImVec2 GetRelativeMousePos();
 
 public:
     ether_sink_impl(bool ui_enable);

@@ -7,6 +7,9 @@
 
 #include "ether_sink_impl.h"
 #include <gnuradio/io_signature.h>
+#include <jetstream/render/base.hh>
+
+using namespace Jetstream;
 
 namespace gr {
 namespace cyber {
@@ -23,73 +26,106 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
                      gr::io_signature::make(0, 0, 0)),
     buffer(1024*1024*8)
 {
+    // Initialize Backend
+    Backend::Initialize<Device::Metal>({});
+
+    // Initialize Render
+    Render::Window::Config renderCfg;
+    renderCfg.size = {3130, 1140};
+    renderCfg.resizable = true;
+    renderCfg.imgui = true;
+    renderCfg.vsync = true;
+    renderCfg.title = "CyberEther";
+    Render::Initialize<Device::Metal>(renderCfg);
+
+    // Allocate Radio Buffer
+    stream = std::make_unique<Memory::Vector<Device::CPU, CF32>>(2 << 11);
+
+    // Configure Jetstream
+    win = Block<Window, Device::CPU>({
+        .size = stream->size(),
+    }, {});
+
+    mul = Block<Multiply, Device::CPU>({
+        .size = stream->size(),
+    }, {
+        .factorA = *stream,
+        .factorB = win->getWindowBuffer(),
+    });
+
+    fft = Block<FFT, Device::CPU>({
+        .size = stream->size(),
+    }, {
+        .buffer = mul->getProductBuffer(),
+    });
+
+    amp = Block<Amplitude, Device::CPU>({
+        .size = stream->size(),
+    }, {
+        .buffer = fft->getOutputBuffer(),
+    });
+
+    scl = Block<Scale, Device::CPU>({
+        .size = stream->size(),
+        .range = {-100.0, 0.0},
+    }, {
+        .buffer = amp->getOutputBuffer(),
+    });
+
+    lpt = Block<Lineplot, Device::CPU>({}, {
+        .buffer = scl->getOutputBuffer(),
+    });
+
+    wtf = Block<Waterfall, Device::CPU>({}, {
+        .buffer = scl->getOutputBuffer(),
+    });
+
+    Render::Create();
+
+    streaming = true;
+
     ui = std::thread([&]{
-        // Configure Render
-        Render::Instance::Config renderCfg;
-        renderCfg.size = {3130, 1140};
-        renderCfg.resizable = true;
-        renderCfg.imgui = true;
-        renderCfg.vsync = true;
-        renderCfg.title = "CyberEther Sink";
-        render = Render::Instantiate(Render::API::GLES, renderCfg);
-
-        // Configure Jetstream Modules
-        auto device = Jetstream::Locale::CUDA;
-        engine = std::make_shared<Jetstream::Engine>();
-        stream = std::vector<std::complex<float>>(2048 * 2);
-
-        Jetstream::FFT::Config fftCfg;
-        fftCfg.input0 = {Jetstream::Locale::CPU, stream};
-        fftCfg.policy = {Jetstream::Launch::ASYNC, {}};
-        fft = Jetstream::FFT::Instantiate(device, fftCfg);
-
-        Jetstream::Lineplot::Config lptCfg;
-        lptCfg.render = render;
-        lptCfg.input0 = fft->output();
-        lptCfg.policy = {Jetstream::Launch::ASYNC, {fft}};
-        lpt = Jetstream::Lineplot::Instantiate(device, lptCfg);
-
-        Jetstream::Waterfall::Config wtfCfg;
-        wtfCfg.render = render;
-        wtfCfg.input0 = fft->output();
-        wtfCfg.policy = {Jetstream::Launch::ASYNC, {fft}};
-        wtf = Jetstream::Waterfall::Instantiate(device, wtfCfg);
-
-        // Add Jetstream modules to the execution pipeline.
-        engine->push_back(fft);
-        engine->push_back(lpt);
-        engine->push_back(wtf);
-
-        render->create();
-
-        while (render->keepRunning() && streaming) {
-            render->start();
+        while (streaming) {
+            Render::Begin();
 
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
 
             {
-                ImGui::Begin("Lineplot");
-                auto regionSize = ImGui::GetContentRegionAvail();
-                auto [width, height] = lpt->size({(int)regionSize.x, (int)regionSize.y});
-                ImGui::Image((void*)(intptr_t)lpt->tex().lock()->raw(), ImVec2(width, height));
+                ImGui::Begin("Waterfall");
+
+                auto [x, y] = ImGui::GetContentRegionAvail();
+                auto [width, height] = wtf->viewSize({(U64)x, (U64)y});
+                ImGui::Image(wtf->getTexture().raw(), ImVec2(width, height));
+
+                if (ImGui::IsItemHovered() && ImGui::IsAnyMouseDown()) {
+                    if (position == 0) {
+                        position = (GetRelativeMousePos().x / wtf->zoom()) + wtf->offset();
+                    }
+                    wtf->offset(position - (GetRelativeMousePos().x / wtf->zoom()));
+                } else {
+                    position = 0;
+                }
+
                 ImGui::End();
             }
 
             {
-                ImGui::Begin("Waterfall");
-                auto regionSize = ImGui::GetContentRegionAvail();
-                auto [width, height] = wtf->size({(int)regionSize.x, (int)regionSize.y});
-                ImGui::Image((void*)(intptr_t)wtf->tex().lock()->raw(), ImVec2(width, height));
+                ImGui::Begin("Lineplot");
+
+                auto [x, y] = ImGui::GetContentRegionAvail();
+                auto [width, height] = lpt->viewSize({(U64)x, (U64)y});
+                ImGui::Image(lpt->getTexture().raw(), ImVec2(width, height));
+
                 ImGui::End();
             }
 
             {
                 ImGui::Begin("Control");
 
-                auto [min, max] = fft->amplitude();
+                auto [min, max] = scl->range();
                 if (ImGui::DragFloatRange2("dBFS Range", &min, &max,
                             1, -300, 0, "Min: %.0f dBFS", "Max: %.0f dBFS")) {
-                    fft->amplitude({min, max});
+                    scl->range({min, max});
                 }
 
                 auto interpolate = wtf->interpolate();
@@ -97,39 +133,53 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
                     wtf->interpolate(interpolate);
                 }
 
+                auto zoom = wtf->zoom();
+                if (ImGui::DragFloat("Waterfall Zoom", &zoom, 0.01, 1.0, 5.0, "%f", 0)) {
+                    wtf->zoom(zoom);
+                }
+
                 ImGui::End();
             }
 
-            ImGui::Begin("Samurai Info");
-            if (streaming) {
-                float bufferUsageRatio = (float)buffer.Occupancy() / (float)buffer.Capacity();
+            {
+                ImGui::Begin("Samurai Info");
+
+                float bufferUsageRatio = (F32)buffer.Occupancy() / buffer.Capacity();
                 ImGui::ProgressBar(bufferUsageRatio, ImVec2(0.0f, 0.0f), "");
                 ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
                 ImGui::Text("Buffer Usage");
+
+                ImGui::End();
             }
-            ImGui::End();
 
-            render->synchronize();
-            JETSTREAM_CHECK_THROW(engine->present());
-            render->end();
+            Jetstream::Present();
+            Render::End();
         }
-
-        render->destroy();
     });
 
     dsp = std::thread([&]{
-        streaming = true;
         while (streaming) {
-            buffer.Get(stream.data(), stream.size());
-            JETSTREAM_CHECK_THROW(engine->compute());
+            buffer.Get(stream->data(), stream->size());
+            Jetstream::Compute();
         }
     });
 }
 
 ether_sink_impl::~ether_sink_impl() {
     streaming = false;
+
     dsp.join();
     ui.join();
+
+    Render::Destroy();
+    Backend::Destroy<Device::Metal>();
+}
+
+ImVec2 ether_sink_impl::GetRelativeMousePos() {
+    ImVec2 mousePositionAbsolute = ImGui::GetMousePos();
+    ImVec2 screenPositionAbsolute = ImGui::GetItemRectMin();
+    return ImVec2(mousePositionAbsolute.x - screenPositionAbsolute.x,
+                  mousePositionAbsolute.y - screenPositionAbsolute.y);
 }
 
 int ether_sink_impl::work(int noutput_items,
