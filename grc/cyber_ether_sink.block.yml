@@ -19,6 +19,20 @@ parameters:
   default: 1
   hide: part
 
+- id: backend
+  label: Compute Backend
+  dtype: enum
+  options: ['Metal', 'Vulkan', 'CUDA']
+  option_labels: ['Metal', 'Vulkan', 'CUDA']
+  hide: none
+
+- id: backend
+  label: Graphical Backend
+  dtype: enum
+  options: ['Metal', 'Vulkan']
+  option_labels: ['Metal', 'Vulkan']
+  hide: none
+
 inputs:
 - label: in
   dtype: complex
