@@ -28,7 +28,7 @@ if(NOT cyber_sources)
 endif(NOT cyber_sources)
 
 add_library(gnuradio-cyber SHARED ${cyber_sources})
-target_link_libraries(gnuradio-cyber
+target_link_libraries(gnuradio-cyber PUBLIC
     gnuradio::gnuradio-runtime
     PkgConfig::jetstream)
 target_include_directories(gnuradio-cyber
