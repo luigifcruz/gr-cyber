@@ -22,8 +22,8 @@ parameters:
 - id: compute_backend
   label: Compute Backend
   dtype: enum
-  options: ['Metal', 'Vulkan', 'CUDA']
-  option_labels: ['Metal', 'Vulkan', 'CUDA']
+  options: ['CPU', 'Metal', 'Vulkan', 'CUDA']
+  option_labels: ['CPU', 'Metal', 'Vulkan', 'CUDA']
   hide: none
 
 - id: graphical_backend
