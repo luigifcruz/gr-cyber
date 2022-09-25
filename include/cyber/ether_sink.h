@@ -32,7 +32,7 @@ public:
      * class. cyber::ether_sink::make is the public interface for
      * creating new instances.
      */
-    static sptr make(bool ui_enable);
+    static sptr make(int fftSize, int bufferMultiplier);
 };
 
 } // namespace cyber

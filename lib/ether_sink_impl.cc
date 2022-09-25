@@ -15,16 +15,16 @@ namespace gr {
 namespace cyber {
 
 using input_type = std::complex<float>;
-ether_sink::sptr ether_sink::make(bool ui_enable)
+ether_sink::sptr ether_sink::make(int fftSize, int bufferMultiplier)
 {
-    return gnuradio::make_block_sptr<ether_sink_impl>(ui_enable);
+    return gnuradio::make_block_sptr<ether_sink_impl>(fftSize, bufferMultiplier);
 }
 
-ether_sink_impl::ether_sink_impl(bool ui_enable)
+ether_sink_impl::ether_sink_impl(int fftSize, int bufferMultiplier)
     : gr::sync_block("ether_sink",
                      gr::io_signature::make(1, 1, sizeof(input_type)),
                      gr::io_signature::make(0, 0, 0)),
-    buffer(1024*1024*8)
+    buffer(fftSize*2048*bufferMultiplier)
 {
     // Initialize Backend
     Backend::Initialize<Device::Metal>({});
@@ -39,7 +39,7 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
     Render::Initialize<Device::Metal>(renderCfg);
 
     // Allocate Radio Buffer
-    stream = std::make_unique<Memory::Vector<Device::CPU, CF32>>(2 << 11);
+    stream = std::make_unique<Memory::Vector<Device::CPU, CF32>>(fftSize);
 
     // Configure Jetstream
     win = Block<Window, Device::CPU>({
@@ -80,12 +80,21 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
         .buffer = scl->getOutputBuffer(),
     });
 
+    scp = Block<Spectrogram, Device::CPU>({}, {
+        .buffer = scl->getOutputBuffer(),
+    });
+
     Render::Create();
 
     streaming = true;
 
     ui = std::thread([&]{
         while (streaming) {
+            if (!Render::KeepRunning()) {
+                JST_INFO("Exiting...")
+                exit(0);
+            }
+
             Render::Begin();
 
             ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
@@ -105,6 +114,16 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
                 } else {
                     position = 0;
                 }
+
+                ImGui::End();
+            }
+
+            {
+                ImGui::Begin("Spectrogram");
+
+                auto [x, y] = ImGui::GetContentRegionAvail();
+                auto [width, height] = scp->viewSize({(U64)x, (U64)y});
+                ImGui::Image(scp->getTexture().raw(), ImVec2(width, height));
 
                 ImGui::End();
             }
@@ -142,12 +161,23 @@ ether_sink_impl::ether_sink_impl(bool ui_enable)
             }
 
             {
-                ImGui::Begin("Samurai Info");
+                ImGui::Begin("Buffer Info");
+
+                float bufferThroughputMB = (buffer.GetThroughput() / (1024 * 1024));
+                ImGui::Text("Throughput %.0f MB/s", bufferThroughputMB);
+
+                float bufferCapacityMB = ((F32)buffer.Capacity() * sizeof(input_type)/ (1024 * 1024));
+                ImGui::Text("Capacity %.0f MB", bufferCapacityMB);
+
+                ImGui::Text("Overflows %llu", buffer.GetOverflows());
+
+                ImGui::Separator();
+                ImGui::Spacing();
 
                 float bufferUsageRatio = (F32)buffer.Occupancy() / buffer.Capacity();
                 ImGui::ProgressBar(bufferUsageRatio, ImVec2(0.0f, 0.0f), "");
                 ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
-                ImGui::Text("Buffer Usage");
+                ImGui::Text("Usage");
 
                 ImGui::End();
             }

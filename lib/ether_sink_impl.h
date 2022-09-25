@@ -30,17 +30,16 @@ private:
     std::shared_ptr<Jetstream::Scale<Jetstream::Device::CPU>> scl;
     std::shared_ptr<Jetstream::Lineplot<Jetstream::Device::CPU>> lpt;
     std::shared_ptr<Jetstream::Waterfall<Jetstream::Device::CPU>> wtf;
+    std::shared_ptr<Jetstream::Spectrogram<Jetstream::Device::CPU>> scp;
 
     std::unique_ptr<Jetstream::Memory::Vector<
       Jetstream::Device::CPU, Jetstream::CF32>> stream;
     Jetstream::Memory::CircularBuffer<Jetstream::CF32> buffer;
 
-    NS::AutoreleasePool* pPool;
-
     ImVec2 GetRelativeMousePos();
 
 public:
-    ether_sink_impl(bool ui_enable);
+    ether_sink_impl(int fftSize, int bufferMultiplier);
     ~ether_sink_impl();
 
     // Where all the action really happens

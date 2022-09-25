@@ -4,13 +4,20 @@ category: '[cyber]'
 
 templates:
   imports: import cyber
-  make: cyber.ether_sink(${ui_enable})
+  make: cyber.ether_sink(${fftsize}, ${buffer_multiplier})
 
 parameters:
-- id: ui_enable
-  label: Enable UI
-  dtype: bool
-  value: true
+- id: fftsize
+  label: FFT Size
+  dtype: int
+  default: 2048
+  hide: none
+
+- id: buffer_multiplier
+  label: Buffer Size Multiplier
+  dtype: int
+  default: 1
+  hide: part
 
 inputs:
 - label: in

@@ -5,3 +5,4 @@ build*/
 examples/grc/*.py
 .clang-format
 .cache
+.DS_Store

@@ -39,7 +39,7 @@ void bind_ether_sink(py::module &m) {
         gr::basic_block, std::shared_ptr<ether_sink>>(m, "ether_sink",
                                                       D(ether_sink))
 
-      .def(py::init(&ether_sink::make), py::arg("ui_enable"),
+      .def(py::init(&ether_sink::make),
            D(ether_sink, make))
 
       ;
