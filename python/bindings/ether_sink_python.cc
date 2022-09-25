@@ -16,7 +16,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0) */
 /* BINDTOOL_USE_PYGCCXML(0) */
 /* BINDTOOL_HEADER_FILE(ether_sink.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(a6b0316980f67439a2e8a82cb0d67241) */
+/* BINDTOOL_HEADER_FILE_HASH(c3eca4de663b623babe6b779ed167c75) */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -39,7 +39,7 @@ void bind_ether_sink(py::module &m) {
         gr::basic_block, std::shared_ptr<ether_sink>>(m, "ether_sink",
                                                       D(ether_sink))
 
-      .def(py::init(&ether_sink::make),
+      .def(py::init(&ether_sink::make), py::arg("fftSize"), py::arg("bufferMultiplier"),
            D(ether_sink, make))
 
       ;
