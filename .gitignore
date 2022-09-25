@@ -2,7 +2,7 @@
 *.pyc
 *.pyo
 build*/
-examples/grc/*.py
+examples/*.py
 .clang-format
 .cache
 .DS_Store
