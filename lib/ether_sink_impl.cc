@@ -91,7 +91,6 @@ ether_sink_impl::ether_sink_impl(int fftSize, int bufferMultiplier)
     ui = std::thread([&]{
         while (streaming) {
             if (!Render::KeepRunning()) {
-                JST_INFO("Exiting...")
                 exit(0);
             }
 
@@ -166,7 +165,7 @@ ether_sink_impl::ether_sink_impl(int fftSize, int bufferMultiplier)
                 float bufferThroughputMB = (buffer.GetThroughput() / (1024 * 1024));
                 ImGui::Text("Throughput %.0f MB/s", bufferThroughputMB);
 
-                float bufferCapacityMB = ((F32)buffer.Capacity() * sizeof(input_type)/ (1024 * 1024));
+                float bufferCapacityMB = ((F32)buffer.GetCapacity() * sizeof(input_type) / (1024 * 1024));
                 ImGui::Text("Capacity %.0f MB", bufferCapacityMB);
 
                 ImGui::Text("Overflows %llu", buffer.GetOverflows());
@@ -174,7 +173,7 @@ ether_sink_impl::ether_sink_impl(int fftSize, int bufferMultiplier)
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                float bufferUsageRatio = (F32)buffer.Occupancy() / buffer.Capacity();
+                float bufferUsageRatio = (F32)buffer.GetOccupancy() / buffer.GetCapacity();
                 ImGui::ProgressBar(bufferUsageRatio, ImVec2(0.0f, 0.0f), "");
                 ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
                 ImGui::Text("Usage");
